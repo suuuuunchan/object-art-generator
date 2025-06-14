@@ -8,6 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Source+Code+Pro:wght@400&display=swap" rel="stylesheet">
+    <!-- GIF/MP4 Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <script src="https://unpkg.com/ccapture.js@1.1.0/build/CCapture.all.min.js"></script>
     <style>
         html, body {
             height: 100%; width: 100%;
@@ -66,28 +69,29 @@
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
         input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
         
-        /* Glassmorphism Toolbar Style */
         .glass-toolbar {
-            background-color: rgba(245, 245, 245, 0.6); /* Light gray with opacity */
+            background-color: rgba(245, 245, 245, 0.6);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        .toolbar-text { color: #374151; } /* Dark gray for text */
+        .toolbar-text { color: #374151; }
         .toolbar-input {
             background-color: rgba(255, 255, 255, 0.5);
             border: 1px solid rgba(209, 213, 219, 0.8);
             color: #1f2937;
         }
-         .toolbar-input:focus {
-            ring-color: #4f46e5;
-        }
-        .toolbar-divider {
-            border-color: rgba(209, 213, 219, 0.7);
-        }
-        .toolbar-accent {
-            color: #4f46e5;
-        }
+         .toolbar-input:focus { ring-color: #4f46e5; }
+        .toolbar-divider { border-color: rgba(209, 213, 219, 0.7); }
+        .toolbar-accent { color: #4f46e5; }
+
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
+        .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .toggle-slider { background-color: #4338ca; }
+        input:focus + .toggle-slider { box-shadow: 0 0 1px #4338ca; }
+        input:checked + .toggle-slider:before { transform: translateX(22px); }
 
     </style>
 </head>
@@ -96,7 +100,6 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
     </button>
     
-    <!-- 모바일 뷰 최적화: max-h-[calc(100vh-2rem)] 와 overflow-y-auto 추가 -->
     <div id="toolbar-container" class="fixed top-4 left-4 z-20 glass-toolbar p-6 rounded-2xl shadow-2xl w-[calc(100%-2rem)] max-w-xs sm:w-80 space-y-6 max-h-[calc(100vh-2rem)] overflow-y-auto">
         <h2 class="text-xl font-bold text-center toolbar-text">ASCII ART tools for pfct</h2>
         
@@ -113,7 +116,7 @@
                      <button id="suggest-units-btn" class="btn bg-yellow-500 hover:bg-yellow-600 p-2 rounded-lg" title="AI 유닛 추천">✨</button>
                 </div>
             </div>
-             <div>
+            <div>
                 <label for="dot-levels" class="block mb-1 font-semibold toolbar-text">도트 단계: <span id="dot-levels-value" class="font-bold toolbar-accent">3</span></label>
                 <input type="range" id="dot-levels" min="0" value="3" class="w-full slider">
             </div>
@@ -124,6 +127,38 @@
             <div>
                 <label for="contrast" class="block mb-1 font-semibold toolbar-text">대비: <span id="contrast-value" class="font-bold toolbar-accent">120</span></label>
                 <input type="range" id="contrast" min="50" max="250" value="120" class="w-full slider">
+            </div>
+        </div>
+
+        <div class="space-y-4 border-t toolbar-divider pt-4">
+            <div class="flex items-center justify-between">
+                <label class="font-semibold toolbar-text">모션</label>
+                <label class="switch">
+                    <input type="checkbox" id="motion-toggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div id="motion-controls" class="hidden space-y-4">
+                 <div>
+                    <label for="motion-style" class="block mb-1 font-semibold toolbar-text">모션 스타일</label>
+                    <select id="motion-style" class="w-full toolbar-input p-2 rounded-lg focus:ring-2">
+                        <option value="loop">루핑</option>
+                        <option value="flow">흐름</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="motion-speed" class="block mb-1 font-semibold toolbar-text">속도: <span id="motion-speed-value" class="font-bold toolbar-accent">5</span></label>
+                    <input type="range" id="motion-speed" min="1" max="30" value="5" class="w-full slider">
+                </div>
+                <div id="flow-controls" class="hidden">
+                    <label for="flow-strength" class="block mb-1 font-semibold toolbar-text">흐름 강도: <span id="flow-strength-value" class="font-bold toolbar-accent">5</span></label>
+                    <input type="range" id="flow-strength" min="1" max="20" value="5" class="w-full slider">
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                    <button id="record-gif-btn" class="btn text-center bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-3 rounded-lg text-sm">GIF 저장</button>
+                    <button id="record-mp4-btn" class="btn text-center bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 px-3 rounded-lg text-sm">MP4 저장</button>
+                </div>
+                <div id="record-status" class="text-center text-sm toolbar-text hidden"></div>
             </div>
         </div>
 
@@ -144,7 +179,7 @@
             </div>
         </div>
         
-        <div class="flex gap-4 border-t toolbar-divider pt-4">
+        <div id="static-downloads" class="flex gap-4 border-t toolbar-divider pt-4">
             <button id="show-original-btn" class="btn flex-1 hidden bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">원본</button>
             <div class="flex-1 grid grid-cols-2 gap-2">
                  <a id="download-png-link" class="btn text-center hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">PNG</a>
@@ -173,93 +208,115 @@
             customCharsInput, dotLevelsSlider, dotLevelsValue, asciiSizeSlider, asciiSizeValue, 
             contrastSlider, contrastValue, downloadPngLink, downloadSvgLink, outputCanvas, outputArea,
             outputPlaceholder, loader, showOriginalBtn, modalBg, modalImage, modalCloseBtn,
-            suggestUnitsBtn, bgColorPicker, bgColorHex, unitColorPicker, unitColorHex
+            suggestUnitsBtn, bgColorPicker, bgColorHex, unitColorPicker, unitColorHex,
+            motionToggle, motionControls, motionStyle, motionSpeedSlider, motionSpeedValue,
+            flowControls, flowStrengthSlider, flowStrengthValue, recordGifBtn, recordMp4Btn, recordStatus, staticDownloads
         ] = [
             'toggle-toolbar-btn', 'toolbar-container', 'image-upload',
             'custom-chars', 'dot-levels', 'dot-levels-value', 'ascii-size', 'ascii-size-value', 
             'contrast', 'contrast-value', 'download-png-link', 'download-svg-link', 'output-canvas', 'output-area',
             'output-placeholder', 'loader', 'show-original-btn', 'modal-bg', 'modal-image', 'modal-close-btn',
-            'suggest-units-btn', 'bg-color-picker', 'bg-color-hex', 'unit-color-picker', 'unit-color-hex'
+            'suggest-units-btn', 'bg-color-picker', 'bg-color-hex', 'unit-color-picker', 'unit-color-hex',
+            'motion-toggle', 'motion-controls', 'motion-style', 'motion-speed', 'motion-speed-value',
+            'flow-controls', 'flow-strength', 'flow-strength-value', 'record-gif-btn', 'record-mp4-btn', 'record-status', 'static-downloads'
         ].map(getEl);
 
         let sourceImage = new Image();
         let debounceTimer;
+        let animationFrameId;
+        let animationOffset = 0;
+        let lastTimestamp = 0;
+        let isRecording = false;
 
-        const renderArt = () => {
+        const renderArt = (offset = 0) => {
             if (!sourceImage.src || !sourceImage.complete || sourceImage.naturalHeight === 0) return;
 
             const charSet = customCharsInput.value;
             if (!charSet) return;
             
             outputPlaceholder.classList.add('hidden');
-            outputCanvas.style.opacity = '0';
+            outputCanvas.style.opacity = '1';
             
             const asciiWidth = parseInt(asciiSizeSlider.value);
             const contrast = parseInt(contrastSlider.value) / 100;
             const dotLevels = parseInt(dotLevelsSlider.value);
+            const unitColor = unitColorPicker.value;
             dotLevelsSlider.max = charSet.length > 0 ? charSet.length : 1;
             const charSetLength = charSet.length;
-            const unitColor = unitColorPicker.value;
             
             const asciiHeight = asciiWidth; 
 
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-            tempCanvas.width = asciiWidth;
-            tempCanvas.height = asciiHeight;
+            tempCanvas.width = asciiWidth; tempCanvas.height = asciiHeight;
             
             const srcSize = Math.min(sourceImage.naturalWidth, sourceImage.naturalHeight);
             const sx = (sourceImage.naturalWidth - srcSize) / 2;
             const sy = (sourceImage.naturalHeight - srcSize) / 2;
             tempCtx.drawImage(sourceImage, sx, sy, srcSize, srcSize, 0, 0, asciiWidth, asciiHeight);
-
-            const imageData = tempCtx.getImageData(0, 0, asciiWidth, asciiHeight);
-            const data = imageData.data;
+            const imageData = tempCtx.getImageData(0, 0, asciiWidth, asciiHeight).data;
             
-            // --- High-Resolution Canvas 개선 ---
             const dpr = window.devicePixelRatio || 1;
             const displaySize = outputArea.clientWidth;
-            outputCanvas.width = displaySize * dpr;
-            outputCanvas.height = displaySize * dpr;
-            outputCanvas.style.width = `${displaySize}px`;
-            outputCanvas.style.height = `${displaySize}px`;
+            const canvasSize = isRecording ? 500 : displaySize * dpr;
+            
+            outputCanvas.width = canvasSize;
+            outputCanvas.height = canvasSize;
+            if(!isRecording) {
+                 outputCanvas.style.width = `${displaySize}px`;
+                 outputCanvas.style.height = `${displaySize}px`;
+            }
 
             const ctx = outputCanvas.getContext('2d');
-            ctx.scale(dpr, dpr);
-            // --- 개선 끝 ---
+            if(!isRecording) ctx.scale(dpr, dpr);
+            
+            ctx.fillStyle = bgColorPicker.value;
+            ctx.fillRect(0,0, canvasSize, canvasSize);
 
-            ctx.clearRect(0, 0, displaySize, displaySize);
             ctx.fillStyle = unitColor;
             
-            const cellTotalSize = displaySize / asciiWidth;
+            const cellTotalSize = (isRecording ? 500 : displaySize) / asciiWidth;
             
             for (let y = 0; y < asciiHeight; y++) {
                 for (let x = 0; x < asciiWidth; x++) {
                     const i = (y * asciiWidth + x) * 4;
-                    const alpha = data[i + 3];
+                    const alpha = imageData[i + 3];
 
                     if (alpha < 50) continue;
-                    const brightness = (0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2]) / 255;
+                    const brightness = (0.299 * imageData[i] + 0.587 * imageData[i+1] + 0.114 * imageData[i+2]) / 255;
                     if (brightness < 0.05) continue; 
 
                     const adjustedBrightness = Math.pow(brightness, contrast);
-                    const levelIndex = Math.min(Math.floor(adjustedBrightness * charSetLength), charSetLength - 1);
+                    let levelIndex = Math.min(Math.floor(adjustedBrightness * charSetLength), charSetLength - 1);
                     
                     const posX = x * cellTotalSize + cellTotalSize / 2;
                     const posY = y * cellTotalSize + cellTotalSize / 2;
                     
-                    const charIndex = levelIndex;
+                    let frameOffset = 0;
+                    if(motionToggle.checked) {
+                        if (motionStyle.value === 'loop') {
+                            frameOffset = offset;
+                        } else if (motionStyle.value === 'flow') {
+                            const flowStrength = parseInt(flowStrengthSlider.value);
+                            // Corrected LTR flow logic
+                            frameOffset = offset - (x / asciiWidth) * flowStrength;
+                        }
+                    }
+
+                    const rawIndex = levelIndex + Math.round(frameOffset);
+                    const animatedIndex = (rawIndex % charSetLength + charSetLength) % charSetLength;
+
                     const textCharLevel = charSetLength - dotLevels;
 
-                    if (charIndex < textCharLevel) {
-                        const unit = charSet[charIndex];
+                    if (animatedIndex < textCharLevel) {
+                        const unit = charSet[animatedIndex];
                         ctx.font = `${cellTotalSize * 1.2}px 'Source Code Pro'`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
                         ctx.fillText(unit, posX, posY);
                     } else {
                         if (dotLevels > 0) {
-                            const dotStep = (charIndex - textCharLevel);
+                            const dotStep = (animatedIndex - textCharLevel);
                             const radius = (dotLevels - dotStep) / dotLevels * (cellTotalSize / 3.5) + (cellTotalSize * 0.1);
                             ctx.beginPath();
                             ctx.arc(posX, posY, radius, 0, Math.PI * 2);
@@ -269,21 +326,61 @@
                 }
             }
 
-            outputCanvas.style.opacity = '1';
-            downloadPngLink.href = outputCanvas.toDataURL('image/png');
-            downloadPngLink.download = `object-art-${Date.now()}.png`;
-            downloadPngLink.classList.remove('hidden');
-            downloadSvgLink.classList.remove('hidden');
-            showOriginalBtn.classList.remove('hidden');
+            if (!motionToggle.checked) {
+              downloadPngLink.href = outputCanvas.toDataURL('image/png');
+              downloadPngLink.download = `object-art-${Date.now()}.png`;
+            }
+        };
+        
+        const animate = (timestamp) => {
+            if (!motionToggle.checked && !isRecording) return;
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            
+            const elapsed = timestamp - lastTimestamp;
+            const speed = parseInt(motionSpeedSlider.value);
+            animationOffset += (elapsed / 1000) * speed;
+
+            renderArt(animationOffset);
+            
+            lastTimestamp = timestamp;
+            if (motionToggle.checked || isRecording) {
+                animationFrameId = requestAnimationFrame(animate);
+            }
         };
 
-        const debouncedRender = () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(renderArt, 50); };
+        const debouncedRender = () => { 
+            if (motionToggle.checked) return;
+            clearTimeout(debounceTimer); 
+            debounceTimer = setTimeout(() => renderArt(0), 50); 
+        };
         
-        [customCharsInput, dotLevelsSlider, asciiSizeSlider, contrastSlider].forEach(el => {
+        [customCharsInput, dotLevelsSlider, asciiSizeSlider, contrastSlider, motionStyle, flowStrengthSlider].forEach(el => {
             el.addEventListener('input', () => {
                 if (el.type === 'range') getEl(`${el.id}-value`).textContent = el.value;
+                if (el.id === 'motion-style') {
+                    flowControls.classList.toggle('hidden', el.value !== 'flow');
+                }
                 debouncedRender();
             });
+        });
+        
+        motionToggle.addEventListener('change', () => {
+            motionControls.classList.toggle('hidden');
+            staticDownloads.classList.toggle('hidden');
+            if (motionToggle.checked) {
+                flowControls.classList.toggle('hidden', motionStyle.value !== 'flow');
+                lastTimestamp = 0;
+                animationFrameId = requestAnimationFrame(animate);
+            } else {
+                cancelAnimationFrame(animationFrameId);
+                renderArt(0);
+                downloadPngLink.classList.remove('hidden');
+                downloadSvgLink.classList.remove('hidden');
+            }
+        });
+        
+        motionSpeedSlider.addEventListener('input', () => {
+            motionSpeedValue.textContent = motionSpeedSlider.value;
         });
 
         const handleImageLoad = (url) => {
@@ -294,7 +391,12 @@
             sourceImage.onload = () => {
                 loader.classList.add('hidden');
                 modalImage.src = url;
-                renderArt();
+                if(motionToggle.checked) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = requestAnimationFrame(animate);
+                } else {
+                    renderArt(0);
+                }
                 if (window.innerWidth < 768) toolbarContainer.classList.add('hidden');
             };
             sourceImage.onerror = () => {
@@ -311,43 +413,34 @@
         modalBg.addEventListener('click', e => e.target === modalBg && modalBg.classList.add('opacity-0', 'pointer-events-none'));
         window.addEventListener('resize', debouncedRender);
         
-        // --- 컬러 피커 기능 ---
         const syncColorInputs = (picker, hexInput) => {
             picker.addEventListener('input', (e) => {
                 hexInput.value = e.target.value;
-                if (picker.id === 'bg-color-picker') {
-                    outputArea.style.backgroundColor = e.target.value;
-                }
+                if (picker.id === 'bg-color-picker') outputArea.style.backgroundColor = e.target.value;
                 debouncedRender();
             });
             hexInput.addEventListener('change', (e) => {
                 picker.value = e.target.value;
-                 if (picker.id === 'bg-color-picker') {
-                    outputArea.style.backgroundColor = e.target.value;
-                }
+                 if (picker.id === 'bg-color-picker') outputArea.style.backgroundColor = e.target.value;
                 debouncedRender();
             });
         };
         syncColorInputs(bgColorPicker, bgColorHex);
         syncColorInputs(unitColorPicker, unitColorHex);
         outputArea.style.backgroundColor = bgColorPicker.value;
-
-        // --- SVG 저장 기능 ---
+        
         const handleSvgDownload = () => {
             if (!sourceImage.src || !sourceImage.complete || sourceImage.naturalHeight === 0) return;
-
             const charSet = customCharsInput.value;
             const asciiWidth = parseInt(asciiSizeSlider.value);
             const contrast = parseInt(contrastSlider.value) / 100;
             const dotLevels = parseInt(dotLevelsSlider.value);
-            const charSetLength = charSet.length;
             const unitColor = unitColorPicker.value;
             const bgColor = bgColorPicker.value;
             
             const asciiHeight = asciiWidth;
             const viewboxSize = 1000;
             const cellTotalSize = viewboxSize / asciiWidth;
-
             let svgElements = '';
 
             const tempCanvas = document.createElement('canvas');
@@ -367,18 +460,17 @@
                     if (brightness < 0.05) continue;
 
                     const adjustedBrightness = Math.pow(brightness, contrast);
-                    const levelIndex = Math.min(Math.floor(adjustedBrightness * charSetLength), charSetLength - 1);
-                    const charIndex = levelIndex;
-                    const textCharLevel = charSetLength - dotLevels;
+                    const levelIndex = Math.min(Math.floor(adjustedBrightness * charSet.length), charSet.length - 1);
+                    const textCharLevel = charSet.length - dotLevels;
 
                     const posX = x * cellTotalSize + cellTotalSize / 2;
                     const posY = y * cellTotalSize + cellTotalSize / 2;
 
-                    if (charIndex < textCharLevel) {
-                        const unit = charSet[charIndex].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    if (levelIndex < textCharLevel) {
+                        const unit = charSet[levelIndex].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         svgElements += `<text x="${posX}" y="${posY}" font-size="${cellTotalSize * 1.2}" font-family="'Source Code Pro', monospace" fill="${unitColor}" text-anchor="middle" dominant-baseline="middle">${unit}</text>`;
                     } else if (dotLevels > 0) {
-                        const dotStep = charIndex - textCharLevel;
+                        const dotStep = levelIndex - textCharLevel;
                         const radius = (dotLevels - dotStep) / dotLevels * (cellTotalSize / 3.5) + (cellTotalSize * 0.1);
                         svgElements += `<circle cx="${posX}" cy="${posY}" r="${radius}" fill="${unitColor}"/>`;
                     }
@@ -389,14 +481,95 @@
             const blob = new Blob([svgString], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-a.href = url;
+            a.href = url;
             a.download = `object-art-${Date.now()}.svg`;
             a.click();
             URL.revokeObjectURL(url);
         };
         downloadSvgLink.addEventListener('click', handleSvgDownload);
+        
+        const startRecording = (format) => {
+             if (isRecording) return;
+             isRecording = true;
+             
+             recordStatus.classList.remove('hidden');
+             recordStatus.textContent = '녹화 준비 중...';
+             [recordGifBtn, recordMp4Btn].forEach(b => b.disabled = true);
+             
+             const totalFrames = 120; // 4 seconds at 30fps
+             let frameCount = 0;
+             let recorder;
+             
+             let initialOffset = animationOffset;
 
-        // --- Gemini API 기능 ---
+             if(format === 'gif'){
+                 recorder = new GIF({ workers: 2, quality: 10, workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js' });
+             } else {
+                 recorder = new CCapture({ format: 'webm', framerate: 30, quality: 90 });
+                 recorder.start();
+             }
+             
+             const captureFrame = () => {
+                 if(frameCount >= totalFrames) {
+                     finishRecording();
+                     return;
+                 }
+                 
+                 const speed = parseInt(motionSpeedSlider.value);
+                 initialOffset += (1000/30) / 1000 * speed;
+                 renderArt(initialOffset);
+                 
+                 if(format === 'gif') {
+                     recorder.addFrame(outputCanvas, {copy: true, delay: 1000/30 });
+                 } else {
+                     recorder.capture(outputCanvas);
+                 }
+
+                 frameCount++;
+                 recordStatus.textContent = `녹화 중... ${Math.round(frameCount/totalFrames * 100)}%`;
+                 requestAnimationFrame(captureFrame);
+             }
+
+             const finishRecording = () => {
+                 recordStatus.textContent = '파일 생성 중...';
+                 if(format === 'gif') {
+                     recorder.on('finished', function(blob) {
+                         const url = URL.createObjectURL(blob);
+                         const a = document.createElement('a');
+                         a.href = url;
+                         a.download = `motion-art.gif`;
+                         a.click();
+                         URL.revokeObjectURL(url);
+                         resetRecordingState();
+                     });
+                     recorder.render();
+                 } else {
+                      recorder.stop();
+                      recorder.save(blob => {
+                         const url = URL.createObjectURL(blob);
+                         const a = document.createElement('a');
+                         a.href = url;
+                         a.download = `motion-art.webm`;
+                         a.click();
+                         URL.revokeObjectURL(url);
+                         resetRecordingState();
+                      });
+                 }
+             }
+             
+             const resetRecordingState = () => {
+                 isRecording = false;
+                 recordStatus.classList.add('hidden');
+                 [recordGifBtn, recordMp4Btn].forEach(b => b.disabled = false);
+                 renderArt(animationOffset);
+             }
+
+             captureFrame();
+        }
+        
+        recordGifBtn.addEventListener('click', () => startRecording('gif'));
+        recordMp4Btn.addEventListener('click', () => startRecording('mp4'));
+
         async function callGemini(prompt) {
             const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
