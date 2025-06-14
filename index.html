@@ -4,7 +4,410 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>개체 중심 하이브리드 아트 생성기 (Pro)</title>
-    ...
-    (전체 HTML 생략 — 실제 답변에선 코드가 계속됨. 용량 문제로 줄임.)
-    ...
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Source+Code+Pro:wght@400&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%; width: 100%;
+            overflow: hidden;
+        }
+        body {
+            font-family: 'Noto Sans KR', sans-serif; color: #f0f0f0;
+        }
+        .btn { transition: all 0.2s ease-in-out; }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); }
+        .btn:disabled { cursor: not-allowed; opacity: 0.5; }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 18px; height: 18px;
+            background: #4f46e5; cursor: pointer; border-radius: 50%;
+        }
+        .slider::-moz-range-thumb {
+            width: 18px; height: 18px;
+            background: #4f46e5; cursor: pointer; border-radius: 50%;
+        }
+        #loader, .spinner {
+            border: 5px solid #f3f3f3; border-top: 5px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        #loader { width: 50px; height: 50px; }
+        .spinner { width: 20px; height: 20px; border-width: 3px; }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #output-area {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            padding: 1rem;
+            transition: background-color 0.2s;
+        }
+        #output-canvas {
+            max-width: 100%; max-height: 100%;
+            object-fit: contain;
+            transition: opacity 0.2s ease-in-out;
+        }
+        .modal, #toolbar-container { transition: opacity 0.25s ease, transform 0.25s ease; }
+        #toolbar-container.hidden {
+            opacity: 0; transform: translateX(-100%); pointer-events: none;
+        }
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+
+    </style>
+</head>
+<body>
+    <button id="toggle-toolbar-btn" class="btn fixed top-4 left-4 z-30 bg-gray-800 bg-opacity-50 hover:bg-opacity-80 p-3 rounded-full">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+    </button>
+    
+    <div id="toolbar-container" class="fixed top-4 left-4 z-20 bg-gray-800 bg-opacity-80 backdrop-filter backdrop-blur-md p-6 rounded-2xl shadow-2xl w-80 space-y-6">
+        <h2 class="text-xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-teal-500">Object Art-i-fy Pro ✨</h2>
+        
+        <div class="space-y-2">
+            <label class="font-semibold">파일 업로드 (PNG 추천)</label>
+            <input type="file" id="image-upload" accept="image/*" class="w-full text-sm text-gray-400 file:mr-2 file:py-2 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-100 file:text-teal-700 hover:file:bg-teal-200">
+        </div>
+        
+        <div class="space-y-4 border-t border-gray-600 pt-4">
+            <div>
+                <label for="custom-chars" class="block mb-1 font-semibold">유닛 (어두운→밝은 순)</label>
+                <div class="flex gap-2">
+                     <input type="text" id="custom-chars" value="Bpfct!." class="flex-grow w-full font-mono bg-gray-700 text-white p-2 rounded-lg border border-gray-600 focus:ring-2 focus:ring-green-500">
+                     <button id="suggest-units-btn" class="btn bg-yellow-500 hover:bg-yellow-600 p-2 rounded-lg" title="AI 유닛 추천">✨</button>
+                </div>
+            </div>
+             <div>
+                <label for="dot-levels" class="block mb-1 font-semibold">도트 단계: <span id="dot-levels-value" class="font-bold text-green-400">3</span></label>
+                <input type="range" id="dot-levels" min="0" max="7" value="3" class="w-full slider">
+            </div>
+            <div>
+                <label for="ascii-size" class="block mb-1 font-semibold">사이즈: <span id="ascii-size-value" class="font-bold text-green-400">120</span></label>
+                <input type="range" id="ascii-size" min="30" max="250" value="120" class="w-full slider">
+            </div>
+            <div>
+                <label for="contrast" class="block mb-1 font-semibold">대비: <span id="contrast-value" class="font-bold text-green-400">120</span></label>
+                <input type="range" id="contrast" min="50" max="250" value="120" class="w-full slider">
+            </div>
+        </div>
+
+        <div class="space-y-4 border-t border-gray-600 pt-4">
+            <div class="flex items-center justify-between">
+                <label for="bg-color" class="font-semibold">배경색</label>
+                <div class="flex items-center gap-2">
+                    <input type="color" id="bg-color-picker" value="#111111">
+                    <input type="text" id="bg-color-hex" value="#111111" class="w-20 font-mono bg-gray-700 text-white p-1 rounded-md border border-gray-600 text-center">
+                </div>
+            </div>
+             <div class="flex items-center justify-between">
+                <label for="unit-color" class="font-semibold">유닛색</label>
+                <div class="flex items-center gap-2">
+                    <input type="color" id="unit-color-picker" value="#e0e0e0">
+                    <input type="text" id="unit-color-hex" value="#e0e0e0" class="w-20 font-mono bg-gray-700 text-white p-1 rounded-md border border-gray-600 text-center">
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex gap-4 border-t border-gray-600 pt-4">
+            <button id="show-original-btn" class="btn flex-1 hidden bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">원본</button>
+            <div class="flex-1 grid grid-cols-2 gap-2">
+                 <a id="download-png-link" class="btn text-center hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">PNG</a>
+                 <a id="download-svg-link" class="btn text-center hidden bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg">SVG</a>
+            </div>
+        </div>
+    </div>
+
+    <main id="output-area" style="background-color: #111111;">
+        <canvas id="output-canvas"></canvas>
+        <p id="output-placeholder" class="text-gray-500 text-lg">좌측 메뉴에서 이미지를 업로드하여 시작하세요.</p>
+        <div id="loader" class="absolute hidden z-10"></div>
+    </main>
+
+    <div id="modal-bg" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-8 z-50 opacity-0 pointer-events-none">
+        <div class="relative">
+            <img id="modal-image" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl" style="max-width: 90vw; max-height: 90vh;">
+            <button id="modal-close-btn" class="absolute -top-4 -right-4 bg-white text-black rounded-full w-8 h-8 flex items-center justify-center text-2xl font-bold">&times;</button>
+        </div>
+    </div>
+
+    <script>
+        const getEl = id => document.getElementById(id);
+        const [
+            toggleToolbarBtn, toolbarContainer, imageUpload,
+            customCharsInput, dotLevelsSlider, dotLevelsValue, asciiSizeSlider, asciiSizeValue, 
+            contrastSlider, contrastValue, downloadPngLink, downloadSvgLink, outputCanvas, outputArea,
+            outputPlaceholder, loader, showOriginalBtn, modalBg, modalImage, modalCloseBtn,
+            suggestUnitsBtn, bgColorPicker, bgColorHex, unitColorPicker, unitColorHex
+        ] = [
+            'toggle-toolbar-btn', 'toolbar-container', 'image-upload',
+            'custom-chars', 'dot-levels', 'dot-levels-value', 'ascii-size', 'ascii-size-value', 
+            'contrast', 'contrast-value', 'download-png-link', 'download-svg-link', 'output-canvas', 'output-area',
+            'output-placeholder', 'loader', 'show-original-btn', 'modal-bg', 'modal-image', 'modal-close-btn',
+            'suggest-units-btn', 'bg-color-picker', 'bg-color-hex', 'unit-color-picker', 'unit-color-hex'
+        ].map(getEl);
+
+        let sourceImage = new Image();
+        let debounceTimer;
+
+        const renderArt = () => {
+            if (!sourceImage.src || !sourceImage.complete || sourceImage.naturalHeight === 0) return;
+
+            const charSet = customCharsInput.value;
+            if (!charSet) return;
+            
+            outputPlaceholder.classList.add('hidden');
+            outputCanvas.style.opacity = '0';
+            
+            const asciiWidth = parseInt(asciiSizeSlider.value);
+            const contrast = parseInt(contrastSlider.value) / 100;
+            const dotLevels = parseInt(dotLevelsSlider.value);
+            dotLevelsSlider.max = charSet.length > 0 ? charSet.length : 1;
+            const charSetLength = charSet.length;
+            const unitColor = unitColorPicker.value;
+            
+            const asciiHeight = asciiWidth; 
+
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+            tempCanvas.width = asciiWidth;
+            tempCanvas.height = asciiHeight;
+            
+            const srcSize = Math.min(sourceImage.naturalWidth, sourceImage.naturalHeight);
+            const sx = (sourceImage.naturalWidth - srcSize) / 2;
+            const sy = (sourceImage.naturalHeight - srcSize) / 2;
+            tempCtx.drawImage(sourceImage, sx, sy, srcSize, srcSize, 0, 0, asciiWidth, asciiHeight);
+
+            const imageData = tempCtx.getImageData(0, 0, asciiWidth, asciiHeight);
+            const data = imageData.data;
+            
+            outputCanvas.width = outputArea.clientWidth;
+            outputCanvas.height = outputArea.clientWidth;
+            const ctx = outputCanvas.getContext('2d');
+            ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+            ctx.fillStyle = unitColor;
+            
+            const cellTotalSize = outputCanvas.width / asciiWidth;
+            
+            for (let y = 0; y < asciiHeight; y++) {
+                for (let x = 0; x < asciiWidth; x++) {
+                    const i = (y * asciiWidth + x) * 4;
+                    const alpha = data[i + 3];
+
+                    if (alpha < 50) continue;
+                    const brightness = (0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2]) / 255;
+                    if (brightness < 0.05) continue; 
+
+                    const adjustedBrightness = Math.pow(brightness, contrast);
+                    const levelIndex = Math.min(Math.floor(adjustedBrightness * charSetLength), charSetLength - 1);
+                    
+                    const posX = x * cellTotalSize + cellTotalSize / 2;
+                    const posY = y * cellTotalSize + cellTotalSize / 2;
+                    
+                    const charIndex = levelIndex;
+                    const textCharLevel = charSetLength - dotLevels;
+
+                    if (charIndex < textCharLevel) {
+                        const unit = charSet[charIndex];
+                        ctx.font = `${cellTotalSize * 1.4}px 'Source Code Pro'`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(unit, posX, posY);
+                    } else {
+                        if (dotLevels > 0) {
+                            const dotStep = (charIndex - textCharLevel);
+                            const radius = (dotLevels - dotStep) / dotLevels * (cellTotalSize / 3) + (cellTotalSize * 0.1);
+                            ctx.beginPath();
+                            ctx.arc(posX, posY, radius, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+
+            outputCanvas.style.opacity = '1';
+            downloadPngLink.href = outputCanvas.toDataURL('image/png');
+            downloadPngLink.download = `object-art-${Date.now()}.png`;
+            downloadPngLink.classList.remove('hidden');
+            downloadSvgLink.classList.remove('hidden');
+            showOriginalBtn.classList.remove('hidden');
+        };
+
+        const debouncedRender = () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(renderArt, 50); };
+        
+        [customCharsInput, dotLevelsSlider, asciiSizeSlider, contrastSlider].forEach(el => {
+            el.addEventListener('input', () => {
+                if (el.type === 'range') getEl(`${el.id}-value`).textContent = el.value;
+                debouncedRender();
+            });
+        });
+
+        const handleImageLoad = (url) => {
+            loader.classList.remove('hidden');
+            outputPlaceholder.classList.add('hidden');
+            
+            sourceImage.src = url;
+            sourceImage.onload = () => {
+                loader.classList.add('hidden');
+                modalImage.src = url;
+                renderArt();
+                if (window.innerWidth < 768) toolbarContainer.classList.add('hidden');
+            };
+            sourceImage.onerror = () => {
+                 loader.classList.add('hidden');
+                 outputPlaceholder.textContent = '이미지를 불러오는 데 실패했습니다.';
+                 outputPlaceholder.classList.remove('hidden');
+            }
+        };
+        
+        imageUpload.addEventListener('change', e => e.target.files[0] && handleImageLoad(URL.createObjectURL(e.target.files[0])));
+        toggleToolbarBtn.addEventListener('click', () => toolbarContainer.classList.toggle('hidden'));
+        showOriginalBtn.addEventListener('click', () => modalBg.classList.remove('opacity-0', 'pointer-events-none'));
+        modalCloseBtn.addEventListener('click', () => modalBg.classList.add('opacity-0', 'pointer-events-none'));
+        modalBg.addEventListener('click', e => e.target === modalBg && modalBg.classList.add('opacity-0', 'pointer-events-none'));
+        window.addEventListener('resize', debouncedRender);
+        
+        // --- 컬러 피커 기능 ---
+        const syncColorInputs = (picker, hexInput) => {
+            picker.addEventListener('input', (e) => {
+                hexInput.value = e.target.value;
+                if (picker.id === 'bg-color-picker') {
+                    outputArea.style.backgroundColor = e.target.value;
+                }
+                debouncedRender();
+            });
+            hexInput.addEventListener('change', (e) => {
+                picker.value = e.target.value;
+                 if (picker.id === 'bg-color-picker') {
+                    outputArea.style.backgroundColor = e.target.value;
+                }
+                debouncedRender();
+            });
+        };
+        syncColorInputs(bgColorPicker, bgColorHex);
+        syncColorInputs(unitColorPicker, unitColorHex);
+        outputArea.style.backgroundColor = bgColorPicker.value;
+
+        // --- SVG 저장 기능 ---
+        const handleSvgDownload = () => {
+            if (!sourceImage.src || !sourceImage.complete || sourceImage.naturalHeight === 0) return;
+
+            const charSet = customCharsInput.value;
+            const asciiWidth = parseInt(asciiSizeSlider.value);
+            const contrast = parseInt(contrastSlider.value) / 100;
+            const dotLevels = parseInt(dotLevelsSlider.value);
+            const charSetLength = charSet.length;
+            const unitColor = unitColorPicker.value;
+            const bgColor = bgColorPicker.value;
+            
+            const asciiHeight = asciiWidth;
+            const viewboxSize = 1000;
+            const cellTotalSize = viewboxSize / asciiWidth;
+
+            let svgElements = '';
+
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+            tempCanvas.width = asciiWidth; tempCanvas.height = asciiHeight;
+            const srcSize = Math.min(sourceImage.naturalWidth, sourceImage.naturalHeight);
+            const sx = (sourceImage.naturalWidth - srcSize) / 2;
+            const sy = (sourceImage.naturalHeight - srcSize) / 2;
+            tempCtx.drawImage(sourceImage, sx, sy, srcSize, srcSize, 0, 0, asciiWidth, asciiHeight);
+            const imageData = tempCtx.getImageData(0, 0, asciiWidth, asciiHeight).data;
+
+            for (let y = 0; y < asciiHeight; y++) {
+                for (let x = 0; x < asciiWidth; x++) {
+                    const i = (y * asciiWidth + x) * 4;
+                    if (imageData[i + 3] < 50) continue;
+                    const brightness = (0.299 * imageData[i] + 0.587 * imageData[i + 1] + 0.114 * imageData[i + 2]) / 255;
+                    if (brightness < 0.05) continue;
+
+                    const adjustedBrightness = Math.pow(brightness, contrast);
+                    const levelIndex = Math.min(Math.floor(adjustedBrightness * charSetLength), charSetLength - 1);
+                    const charIndex = levelIndex;
+                    const textCharLevel = charSetLength - dotLevels;
+
+                    const posX = x * cellTotalSize + cellTotalSize / 2;
+                    const posY = y * cellTotalSize + cellTotalSize / 2;
+
+                    if (charIndex < textCharLevel) {
+                        const unit = charSet[charIndex].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        svgElements += `<text x="${posX}" y="${posY}" font-size="${cellTotalSize * 1.4}" font-family="'Source Code Pro', monospace" fill="${unitColor}" text-anchor="middle" dominant-baseline="middle">${unit}</text>`;
+                    } else if (dotLevels > 0) {
+                        const dotStep = charIndex - textCharLevel;
+                        const radius = (dotLevels - dotStep) / dotLevels * (cellTotalSize / 3) + (cellTotalSize * 0.1);
+                        svgElements += `<circle cx="${posX}" cy="${posY}" r="${radius}" fill="${unitColor}"/>`;
+                    }
+                }
+            }
+
+            const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewboxSize} ${viewboxSize}" width="${viewboxSize}" height="${viewboxSize}"><rect width="100%" height="100%" fill="${bgColor}" />${svgElements}</svg>`;
+            const blob = new Blob([svgString], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `object-art-${Date.now()}.svg`;
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+        downloadSvgLink.addEventListener('click', handleSvgDownload);
+
+        // --- Gemini API 기능 ---
+        async function callGemini(prompt) {
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`API 요청 실패: ${response.status}`);
+                const result = await response.json();
+                if (result.candidates?.[0]?.content?.parts?.[0]) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    throw new Error('API 응답에서 텍스트를 찾을 수 없습니다.');
+                }
+            } catch (error) {
+                console.error('Gemini API 호출 오류:', error);
+                alert(`AI 기능 처리 중 오류 발생: ${error.message}`);
+                return null;
+            }
+        }
+        
+        suggestUnitsBtn.addEventListener('click', async () => {
+            const theme = window.prompt("어떤 테마나 분위기의 유닛을 추천해드릴까요?\n(예: 우주, 기계, 숲, 귀여운)");
+            if (!theme) return;
+
+            suggestUnitsBtn.disabled = true;
+            const originalText = suggestUnitsBtn.innerHTML;
+            suggestUnitsBtn.innerHTML = '<div class="spinner" style="width:20px; height:20px; border-width:3px;"></div>';
+
+            const geminiPrompt = `"${theme}"라는 테마에 어울리는 아트웍 유닛을 추천해줘. 어두운 명암부터 밝은 명암 순서로 7~8개의 문자와 기호를 조합해줘. 결과는 다른 설명 없이 문자셋만 한 줄로 출력해줘. 예: B#&g*:.`;
+            const suggestedUnits = await callGemini(geminiPrompt);
+            
+            if (suggestedUnits) {
+                customCharsInput.value = suggestedUnits.trim();
+                debouncedRender();
+            }
+
+            suggestUnitsBtn.disabled = false;
+            suggestUnitsBtn.innerHTML = originalText;
+        });
+
+    </script>
+</body>
 </html>
