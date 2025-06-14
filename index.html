@@ -215,13 +215,22 @@
             const imageData = tempCtx.getImageData(0, 0, asciiWidth, asciiHeight);
             const data = imageData.data;
             
-            outputCanvas.width = outputArea.clientWidth;
-            outputCanvas.height = outputArea.clientWidth;
+            // --- High-Resolution Canvas 개선 ---
+            const dpr = window.devicePixelRatio || 1;
+            const displaySize = outputArea.clientWidth; // 표시될 크기
+            outputCanvas.width = displaySize * dpr; // 실제 픽셀 크기 설정
+            outputCanvas.height = displaySize * dpr;
+            outputCanvas.style.width = `${displaySize}px`; // CSS 크기 설정
+            outputCanvas.style.height = `${displaySize}px`;
+
             const ctx = outputCanvas.getContext('2d');
-            ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+            ctx.scale(dpr, dpr); // 컨텍스트 스케일링
+            // --- 개선 끝 ---
+
+            ctx.clearRect(0, 0, displaySize, displaySize);
             ctx.fillStyle = unitColor;
             
-            const cellTotalSize = outputCanvas.width / asciiWidth;
+            const cellTotalSize = displaySize / asciiWidth;
             
             for (let y = 0; y < asciiHeight; y++) {
                 for (let x = 0; x < asciiWidth; x++) {
@@ -243,14 +252,14 @@
 
                     if (charIndex < textCharLevel) {
                         const unit = charSet[charIndex];
-                        ctx.font = `${cellTotalSize * 1.2}px 'Source Code Pro'`; // 간격 조절
+                        ctx.font = `${cellTotalSize * 1.2}px 'Source Code Pro'`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
                         ctx.fillText(unit, posX, posY);
                     } else {
                         if (dotLevels > 0) {
                             const dotStep = (charIndex - textCharLevel);
-                            const radius = (dotLevels - dotStep) / dotLevels * (cellTotalSize / 3.5) + (cellTotalSize * 0.1); // 간격 조절
+                            const radius = (dotLevels - dotStep) / dotLevels * (cellTotalSize / 3.5) + (cellTotalSize * 0.1);
                             ctx.beginPath();
                             ctx.arc(posX, posY, radius, 0, Math.PI * 2);
                             ctx.fill();
@@ -260,6 +269,7 @@
             }
 
             outputCanvas.style.opacity = '1';
+            // PNG 다운로드는 이제 고해상도 캔버스를 캡처합니다.
             downloadPngLink.href = outputCanvas.toDataURL('image/png');
             downloadPngLink.download = `object-art-${Date.now()}.png`;
             downloadPngLink.classList.remove('hidden');
@@ -366,10 +376,10 @@
 
                     if (charIndex < textCharLevel) {
                         const unit = charSet[charIndex].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        svgElements += `<text x="${posX}" y="${posY}" font-size="${cellTotalSize * 1.2}" font-family="'Source Code Pro', monospace" fill="${unitColor}" text-anchor="middle" dominant-baseline="middle">${unit}</text>`; // 간격 조절
+                        svgElements += `<text x="${posX}" y="${posY}" font-size="${cellTotalSize * 1.2}" font-family="'Source Code Pro', monospace" fill="${unitColor}" text-anchor="middle" dominant-baseline="middle">${unit}</text>`;
                     } else if (dotLevels > 0) {
                         const dotStep = charIndex - textCharLevel;
-                        const radius = (dotLevels - dotStep) / dotLevels * (cellTotalSize / 3.5) + (cellTotalSize * 0.1); // 간격 조절
+                        const radius = (dotLevels - dotStep) / dotLevels * (cellTotalSize / 3.5) + (cellTotalSize * 0.1);
                         svgElements += `<circle cx="${posX}" cy="${posY}" r="${radius}" fill="${unitColor}"/>`;
                     }
                 }
@@ -379,7 +389,7 @@
             const blob = new Blob([svgString], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
+a.href = url;
             a.download = `object-art-${Date.now()}.svg`;
             a.click();
             URL.revokeObjectURL(url);
