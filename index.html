@@ -96,7 +96,8 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
     </button>
     
-    <div id="toolbar-container" class="fixed top-4 left-4 z-20 glass-toolbar p-6 rounded-2xl shadow-2xl w-80 space-y-6">
+    <!-- 모바일 뷰 최적화: max-h-[calc(100vh-2rem)] 와 overflow-y-auto 추가 -->
+    <div id="toolbar-container" class="fixed top-4 left-4 z-20 glass-toolbar p-6 rounded-2xl shadow-2xl w-[calc(100%-2rem)] max-w-xs sm:w-80 space-y-6 max-h-[calc(100vh-2rem)] overflow-y-auto">
         <h2 class="text-xl font-bold text-center toolbar-text">ASCII ART tools for pfct</h2>
         
         <div class="space-y-2">
@@ -217,14 +218,14 @@
             
             // --- High-Resolution Canvas 개선 ---
             const dpr = window.devicePixelRatio || 1;
-            const displaySize = outputArea.clientWidth; // 표시될 크기
-            outputCanvas.width = displaySize * dpr; // 실제 픽셀 크기 설정
+            const displaySize = outputArea.clientWidth;
+            outputCanvas.width = displaySize * dpr;
             outputCanvas.height = displaySize * dpr;
-            outputCanvas.style.width = `${displaySize}px`; // CSS 크기 설정
+            outputCanvas.style.width = `${displaySize}px`;
             outputCanvas.style.height = `${displaySize}px`;
 
             const ctx = outputCanvas.getContext('2d');
-            ctx.scale(dpr, dpr); // 컨텍스트 스케일링
+            ctx.scale(dpr, dpr);
             // --- 개선 끝 ---
 
             ctx.clearRect(0, 0, displaySize, displaySize);
@@ -269,7 +270,6 @@
             }
 
             outputCanvas.style.opacity = '1';
-            // PNG 다운로드는 이제 고해상도 캔버스를 캡처합니다.
             downloadPngLink.href = outputCanvas.toDataURL('image/png');
             downloadPngLink.download = `object-art-${Date.now()}.png`;
             downloadPngLink.classList.remove('hidden');
